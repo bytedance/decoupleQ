@@ -1,0 +1,15 @@
+python3 resnet.py \
+--dataset PATH/imagenet \
+--model resnet18 \
+--group-size -1 \
+--nsamples 10 \
+--wbits 2 \
+--iters-before-round=50 \
+--inner-iters-for-round=50 \
+--max-iter-num=4 \
+--round-fn train \
+--blockwise-minimize-lr 1e-6 \
+--blockwise-minimize-wd 1e-4 \
+--blockwise-minimize-epoch 1 \
+--act-order \
+--train-LN
