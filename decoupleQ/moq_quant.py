@@ -23,12 +23,10 @@ def cal_quant_error(x, q, h):
     assert x.ndim == 2
     assert q.ndim == 2
     assert h.ndim == 2
-    # Although the calculation below is fast, it is not accurate.
-    # The results of these two calculations are sometimes different, which is very uncomfortable.
-    # err = torch.matmul(torch.matmul(q-x, h), (q-x).t()).diag()
-    r = q - x
-    err = torch.matmul(torch.matmul(r.unsqueeze(1), h.unsqueeze(0)), r.unsqueeze(-1))
-    err = err.squeeze(-1).squeeze(-1)
+    err = torch.matmul(torch.matmul(q-x, h), (q-x).t()).diag()  # This line is much faster than the three lines below
+    # r = q - x
+    # err = torch.matmul(torch.matmul(r.unsqueeze(1), h.unsqueeze(0)), r.unsqueeze(-1))
+    # err = err.squeeze(-1).squeeze(-1)
     return err  # [num_channel]
 
 
