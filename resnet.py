@@ -1,12 +1,5 @@
 """
-The code in this file is built on thr top of OPTQ, please visit:
-https://github.com/IST-DASLab/gptq
-for their origin contribution
-
-SPDX-License-Identifier: Apache-2.0
-
-This file may have been modified by Bytedance Ltd. and/or its affiliates (“Bytedance's Modifications”).
-All Bytedance's Modifications are Copyright (2024) Bytedance Ltd. and/or its affiliates.
+Copyright (2024) Bytedance Ltd. and/or its affiliates
 """
 import time
 
