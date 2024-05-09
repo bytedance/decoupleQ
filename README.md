@@ -1,7 +1,9 @@
 # decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points
 
 This repository contains the code for decoupleQ, the paper link is https://arxiv.org/abs/2404.12759 
+
 The W2 CUDA kernel is available at https://github.com/NVIDIA/TensorRT-LLM/pull/1568
+
 Some of the code in this repo is built on top of [OPTQ's repository](https://github.com/IST-DASLab/gptq). We sincerely thank OPTQ for their great contribution.
 
 Please feel free to raise issues or contact guoyi.0@bytedance.com if you have any question.
