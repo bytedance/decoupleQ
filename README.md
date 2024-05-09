@@ -6,7 +6,7 @@ The W2 CUDA kernel is available at https://github.com/NVIDIA/TensorRT-LLM/pull/1
 
 Some of the code in this repo is built on top of [OPTQ's repository](https://github.com/IST-DASLab/gptq). We sincerely thank OPTQ for their great contribution.
 
-Please feel free to raise issues or contact guoyi.0@bytedance.com if you have any question.
+Please feel free to raise issues or contact chenwei.gavin@bytedance.com or guoyi.0@bytedance.com if you have any question.
 
 ## Dependencies
 All of our experiments are conducted in the following environment.
