@@ -16,6 +16,8 @@ All of our experiments are conducted in the following environment.
 
 
 ## Reproduce
+To reproduce the results of LLama, you should first download the models from [here](https://llama.meta.com/llama-downloads/), 
+then put it at ``PATH``. Change the ``PATH`` in the run_llama.sh to the destination where the models are placed.
 ```
 bash run_llama.sh # will get result 9.49 for wikiText2
 bash run_resnet.sh # will get result 64.134 for ResNet-18
