@@ -284,8 +284,8 @@ def save_quant_model(args, model, quantizers, prefix):
                 if args.asym:
                     true_quant[k + '_qzero'] = quantizers[new_k]["scales"][1]
                 true_quant[k] = quantizers[new_k]["weights"]
-    torch.save(fake_quant, f"fake_quant.pth")
-    torch.save(true_quant, f"true_quant.pth")
+    torch.save(fake_quant, "fake_quant.pth")
+    torch.save(true_quant, "true_quant.pth")
 
 
 if __name__ == '__main__':
@@ -418,7 +418,7 @@ if __name__ == '__main__':
     tick = time.time()
     quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
     if args.save:
-        save_quant_model(args, model, quantizers, prefix="model.model.layers.")
+        save_quant_model(args, model, quantizers, prefix="model.layers.")
     print("The quantization duration is ", (time.time() - tick) / 3600)
     datasets = ['wikitext2', 'ptb', 'c4']
     if args.new_eval:

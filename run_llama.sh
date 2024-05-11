@@ -10,4 +10,5 @@ python3 llama.py PATH/llama-7b c4 --true-sequential --act-order --new-eval \
 --blockwise-minimize-epoch 4 \
 --round-fn gptq \
 --blockwise-minimize-lr 1.0e-5 \
---train-LN
+--train-LN \
+--save
