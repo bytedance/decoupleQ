@@ -268,6 +268,26 @@ def llama_eval(model, testenc, dev):
     return ppl.item(), (torch.stack(nlls).sum() / (nsamples * model.seqlen)).item()
 
 
+def save_quant_model(args, model, quantizers, prefix):
+    model = model.cpu()
+    state_dict = model.state_dict()
+    fake_quant, true_quant = state_dict, {}
+    for k, v in state_dict.items():
+        if not k.startswith(prefix):
+            true_quant[k] = v
+        else:
+            new_k = k.replace(prefix, "")
+            if new_k not in quantizers:
+                true_quant[k] = v
+            else:
+                true_quant[k + '_qscale'] = quantizers[new_k]["scales"][0]
+                if args.asym:
+                    true_quant[k + '_qzero'] = quantizers[new_k]["scales"][1]
+                true_quant[k] = quantizers[new_k]["weights"]
+    torch.save(fake_quant, f"fake_quant.pth")
+    torch.save(true_quant, f"true_quant.pth")
+
+
 if __name__ == '__main__':
     import argparse
     from datautils import *
@@ -311,8 +331,8 @@ if __name__ == '__main__':
         help='Whether to perform symmetric quantization.'
     )
     parser.add_argument(
-        '--save', type=str, default='',
-        help='Save quantized checkpoint under this name.'
+        '--save', action='store_true',
+        help='Whether to save the fake and true checkpoints'
     )
     parser.add_argument(
         '--new-eval', action='store_true',
@@ -397,6 +417,8 @@ if __name__ == '__main__':
     dataloader = [b[0] for b in dataloader]
     tick = time.time()
     quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+    if args.save:
+        save_quant_model(args, model, quantizers, prefix="model.model.layers.")
     print("The quantization duration is ", (time.time() - tick) / 3600)
     datasets = ['wikitext2', 'ptb', 'c4']
     if args.new_eval:
@@ -409,6 +431,5 @@ if __name__ == '__main__':
         ppl, logPPL = llama_eval(model, testloader, dev)
         print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
 
-    if args.save:
-        llama_pack3(model, quantizers)
-        torch.save(model.state_dict(), args.save)
+
+
