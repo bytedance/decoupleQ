@@ -37,12 +37,10 @@ Here is a summary of LLama results:
 
 If you found this work useful, please consider citing: 
 ```
-@misc{guo2024decoupleq,
-      title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points}, 
-      author={Yi Guo and Fanliu Kong and Xiaoyang Li and Hui Li and Wei Chen and Xiaogang Tian and Jinping Cai and Yang Zhang and Shouda Liu},
-      year={2024},
-      eprint={2404.12759},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@article{guo2024decoupleq,
+  title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points},
+  author={Guo, Yi and Kong, Fanliu and Li, Xiaoyang and Li, Hui and Chen, Wei and Tian, Xiaogang and Cai, Jinping and Zhang, Yang and Liu, Shouda},
+  journal={arXiv preprint arXiv:2404.12759},
+  year={2024}
 }
 ```
