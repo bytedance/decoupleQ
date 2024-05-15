@@ -78,7 +78,7 @@ def coord_descent1(x, H00, left, right, start=0):
     left: [num_channel, dim]
     right: [num_channel, dim]
     """
-    grad = torch.matmul(x, H00)  # 坐标下降法，[num_channel, dim]
+    grad = torch.matmul(x, H00)  # coordinate descent，[num_channel, dim]
     for i in range(start, x.shape[1]):
         d = H00[i, i]
         other = grad - torch.outer(x[:, i], H00[i, :])
@@ -135,7 +135,7 @@ def round_gptq(W, scale_out, zero_out, sym, min_bound, max_bound, H00=None, **kw
     for i in range(W.shape[1]):
         w = W[:, i]
         d = Hinv[i, i]
-        newW[:, i] = w  # 注意！ 要放在这里，才是保存伪量化以前的
+        newW[:, i] = w
         q = my_round(safe_div(w - zero_out[:, i], scale_out[:, i])).clamp(min=min_bound, max=max_bound)
         q = q * scale_out[:, i] + zero_out[:, i]
         q = q.flatten()
@@ -151,7 +151,7 @@ def round_train(w, scale_out, zero_out, sym, min_bound, max_bound, H00=None, x0=
     beta1, beta2 = opt.beta1, opt.beta2
     eps = 1.0e-4
     step = opt.t
-    newW = w.clone()  # 保存被修改以后、伪量化前的weights
+    newW = w.clone()
     for i in range(0, w.shape[1] - 1):
         newW[:, i] = w[:, i]
         q = my_round(safe_div(w[:, i] - zero_out[:, i], scale_out[:, i])).clamp(min=min_bound, max=max_bound)
@@ -282,7 +282,7 @@ class Quantizer(nn.Module):
             return self.get_scale_and_zero_out(x, scale, zero, H, x0=x0, x_int=x_int)
         if x_int is None:
             x_int = self.get_fake_int_in(x, scale, zero, groupsize=groupsize)
-        assert not self.sym  # They are groups, no symmetric quantization by default.
+        assert not self.sym  # There are groups, no symmetric quantization by default.
 
         def matmul(i, j, k):
             return torch.matmul(torch.matmul(i, j.unsqueeze(0)), k)
@@ -399,7 +399,6 @@ class Quantizer(nn.Module):
     def quant_via_minmax(self, x, groupsize, h, bestp=None):
         xmin, xmax = self.get_minmax(x, groupsize)
         if bestp is None:
-            # 下面这个函数其实挺耗时的
             scale, zero, _, bestp = self.get_scale_and_zero(xmin, xmax, x, h, groupsize=groupsize)
         else:
             shape = [xmax.shape[0]] + [1] * (xmax.dim() - 1)
@@ -420,7 +419,7 @@ class Quantizer(nn.Module):
     def get_scale_and_zero_out(self, x, scale, zero, h, x0=None, x_int=None):
         x0 = x if x0 is None else x0
         x_int = self.get_fake_int_in(x, scale, zero) if x_int is None else x_int
-        if self.sym:  # 对称量化
+        if self.sym:
             scale_out, err = self.get_scale_out_sym(h, x0, x_int, -1)
             # zero_out = torch.zeros_like(scale_out)
             zero_out = torch.full_like(scale_out, (self.max_bound + self.min_bound + 1) // 2)

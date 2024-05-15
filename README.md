@@ -27,22 +27,27 @@ consider modifying the flag: `torch.backends.cuda.matmul.allow_tf32`. More detai
 
 
 ## Results
-Here is a summary of LLama results:
-
+Here is a summary of LLama results (runtime for
+the quantization process is measured in hours):
 
 ![decoupleQ](imgs/img.png)
 
+
+## Updates
+Here is the results of ByteDance's two ASR models. The models are quantized into W2A16g64.
+In decoupleQ+sft, when the whole model is quantized, we fine-tune the float-point parts with labeled dataset, while freezing all the
+integer part. There are two sub-domains in task B, and we report the WER of both. (runtime is measured in hours)
+
+![decoupleQ](imgs/private_exp.png)
 
 ## Cite
 
 If you found this work useful, please consider citing: 
 ```
-@misc{guo2024decoupleq,
-      title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points}, 
-      author={Yi Guo and Fanliu Kong and Xiaoyang Li and Hui Li and Wei Chen and Xiaogang Tian and Jinping Cai and Yang Zhang and Shouda Liu},
-      year={2024},
-      eprint={2404.12759},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@article{guo2024decoupleq,
+  title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points},
+  author={Guo, Yi and Kong, Fanliu and Li, Xiaoyang and Li, Hui and Chen, Wei and Tian, Xiaogang and Cai, Jinping and Zhang, Yang and Liu, Shouda},
+  journal={arXiv preprint arXiv:2404.12759},
+  year={2024}
 }
 ```
