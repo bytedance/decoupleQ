@@ -4,7 +4,7 @@ Copyright (2024) Bytedance Ltd. and/or its affiliates
 import torch
 from torch import nn 
 
-from .DecoupleQ_kernels import dQ_preprocess_weights_int2_for_weight_only, dQ_asymm_qw2_gemm
+from .decoupleQ_kernels import dQ_preprocess_weights_int2_for_weight_only, dQ_asymm_qw2_gemm
 
 
 cnt = 0

@@ -10,7 +10,6 @@ All Bytedance's Modifications are Copyright (2024) Bytedance Ltd. and/or its aff
 """
 import time
 import os
-from tokenize import group
 from xml.sax.handler import feature_external_ges
 import torch
 import torch.nn as nn
