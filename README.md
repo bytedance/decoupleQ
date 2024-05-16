@@ -25,24 +25,36 @@ bash run_resnet.sh # will get result 64.134 for ResNet-18
 In llama quantization, if you find that the reproduced results (including the runtime) are far from the reported results, 
 consider modifying the flag: `torch.backends.cuda.matmul.allow_tf32`. More details can be found in [here](https://pytorch.org/docs/stable/notes/cuda.html#tf32-on-ampere).
 
+to run inference demo:
+```
+git submodule update --init
+bash build.sh  # need cmake3.21+
+bash run_inference_llama.sh $LLAMA_ORG_MODEL_DIR $LLAMA_TRUE_QUANT_MODEL_PT
+```
+
 
 ## Results
-Here is a summary of LLama results:
-
+Here is a summary of LLama results (runtime for
+the quantization process is measured in hours):
 
 ![decoupleQ](imgs/img.png)
 
+
+## Updates
+Here is the results of ByteDance's two ASR models. The models are quantized into W2A16g64.
+In decoupleQ+sft, when the whole model is quantized, we fine-tune the float-point parts with labeled dataset, while freezing all the
+integer part. There are two sub-domains in task B, and we report the WER of both. (runtime is measured in hours)
+
+![decoupleQ](imgs/private_exp.png)
 
 ## Cite
 
 If you found this work useful, please consider citing: 
 ```
-@misc{guo2024decoupleq,
-      title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points}, 
-      author={Yi Guo and Fanliu Kong and Xiaoyang Li and Hui Li and Wei Chen and Xiaogang Tian and Jinping Cai and Yang Zhang and Shouda Liu},
-      year={2024},
-      eprint={2404.12759},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@article{guo2024decoupleq,
+  title={decoupleQ: Towards 2-bit Post-Training Uniform Quantization via decoupling Parameters into Integer and Floating Points},
+  author={Guo, Yi and Kong, Fanliu and Li, Xiaoyang and Li, Hui and Chen, Wei and Tian, Xiaogang and Cai, Jinping and Zhang, Yang and Liu, Shouda},
+  journal={arXiv preprint arXiv:2404.12759},
+  year={2024}
 }
 ```

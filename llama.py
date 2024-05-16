@@ -10,7 +10,6 @@ All Bytedance's Modifications are Copyright (2024) Bytedance Ltd. and/or its aff
 """
 import time
 import os
-from tokenize import group
 from xml.sax.handler import feature_external_ges
 import torch
 import torch.nn as nn
@@ -269,8 +268,6 @@ def llama_eval(model, testenc, dev):
     model.config.use_cache = use_cache
     return ppl.item(), (torch.stack(nlls).sum() / (nsamples * model.seqlen)).item()
 
-
-
 def make_qw2_linear(old_linear: torch.nn.Linear, state_dicts, group_size, name):
     in_features = old_linear.in_features
     out_features = old_linear.out_features
@@ -311,8 +308,24 @@ def replace_llama_with_w2(llama_model, state_dicts, group_size):
         layers[i].mlp.up_proj = up_proj_new_linear
         layers[i].mlp.down_proj = down_proj_new_linear
 
-def llama_infer(llama_model, input_ids):
-    pass
+def save_quant_model(args, model, quantizers, prefix):
+    model = model.cpu()
+    state_dict = model.state_dict()
+    fake_quant, true_quant = state_dict, {}
+    for k, v in state_dict.items():
+        if not k.startswith(prefix):
+            true_quant[k] = v
+        else:
+            new_k = k.replace(prefix, "")
+            if new_k not in quantizers:
+                true_quant[k] = v
+            else:
+                true_quant[k + '_qscale'] = quantizers[new_k]["scales"][0]
+                if args.asym:
+                    true_quant[k + '_qzero'] = quantizers[new_k]["scales"][1]
+                true_quant[k] = quantizers[new_k]["weights"]
+    torch.save(fake_quant, "fake_quant.pth")
+    torch.save(true_quant, "true_quant.pth")
 
 
 if __name__ == '__main__':
@@ -363,8 +376,8 @@ if __name__ == '__main__':
         help='Whether to perform symmetric quantization.'
     )
     parser.add_argument(
-        '--save', type=str, default='',
-        help='Save quantized checkpoint under this name.'
+        '--save', action='store_true',
+        help='Whether to save the fake and true checkpoints'
     )
     parser.add_argument(
         '--new-eval', action='store_true',
@@ -474,25 +487,42 @@ if __name__ == '__main__':
         dataloader, testloader = get_loaders(
             args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
         )
-
+    
         dev = "cuda:0"
         rank = 0
         layers = model.model.layers
         dataloader = [b[0] for b in dataloader]
         tick = time.time()
         quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+        if args.save:
+            save_quant_model(args, model, quantizers, prefix="model.layers.")
         print("The quantization duration is ", (time.time() - tick) / 3600)
         datasets = ['wikitext2', 'ptb', 'c4']
         if args.new_eval:
             datasets = ['wikitext2', 'ptb-new', 'c4-new']
         for dataset in datasets:
             dataloader, testloader = get_loaders(
-                dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
+                args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
             )
-            print(dataset)
-            ppl, logPPL = llama_eval(model, testloader, dev)
-            print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
-
-        if args.save:
-            llama_pack3(model, quantizers)
-            torch.save(model.state_dict(), args.save)
+    
+            dev = "cuda:0"
+            rank = 0
+            layers = model.model.layers
+            dataloader = [b[0] for b in dataloader]
+            tick = time.time()
+            quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+            print("The quantization duration is ", (time.time() - tick) / 3600)
+            datasets = ['wikitext2', 'ptb', 'c4']
+            if args.new_eval:
+                datasets = ['wikitext2', 'ptb-new', 'c4-new']
+            for dataset in datasets:
+                dataloader, testloader = get_loaders(
+                    dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
+                )
+                print(dataset)
+                ppl, logPPL = llama_eval(model, testloader, dev)
+                print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
+    
+            if args.save:
+                llama_pack3(model, quantizers)
+                torch.save(model.state_dict(), args.save)
