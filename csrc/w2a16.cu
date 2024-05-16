@@ -6,8 +6,6 @@ Copyright (2024) Bytedance Ltd. and/or its affiliates
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
 
-//#include "fpA_intB_gemm/launchers/fpA_intB_launcher_sm90.inl"
-//#include "fpA_intB_gemm/fpA_intB_gemm_template.h"
 #include "fpA_intB_gemm/fpA_intB_gemm.h"
 
 #include "cutlass_preprocessors.h"
@@ -34,21 +32,6 @@ class ITrtllmFpAIntBGemm {
   ITrtllmFpAIntBGemm() {}
   virtual ~ITrtllmFpAIntBGemm() {}
 
-  // asymm
-  /*
-  virtual void forward_res(const th::Tensor& A, const th::Tensor& B,
-                           th::Tensor& C, const th::Tensor& scale,
-                           const th::Tensor& zp, const th::Tensor& bias,
-                           const th::Tensor& res, const int64_t m,
-                           const int64_t n, const int64_t k,
-                           int group_size) = 0;
-
-  virtual void forward_gelu(const th::Tensor& A, const th::Tensor& B,
-                            th::Tensor& C, const th::Tensor& scale,
-                            const th::Tensor& zp, const th::Tensor& bias,
-                            const int64_t m, const int64_t n, const int64_t k,
-                            int group_size) = 0;
-  */
   virtual void forward(const th::Tensor& A, const th::Tensor& B, th::Tensor& C,
                        const th::Tensor& scale, const th::Tensor& zp,
                        const th::Tensor& bias, const int64_t m, const int64_t n,
@@ -64,63 +47,6 @@ class TrtllmFpAIntBGemm : public ITrtllmFpAIntBGemm {
 
   ~TrtllmFpAIntBGemm() override {}
 
-  // asymm funcs
-  /*
-  void forward_res(const th::Tensor& A, const th::Tensor& B, th::Tensor& C,
-                   const th::Tensor& scale, const th::Tensor& zp,
-                   const th::Tensor& bias, const th::Tensor& res,
-                   const int64_t m, const int64_t n, const int64_t k,
-                   int group_size) override {
-    auto stream = at::cuda::getCurrentCUDAStream().stream();
-    const T* input_act_ptr = get_ptr<const T>(A);
-    const WeightType* weight_ptr = get_ptr<const WeightType>(B);
-    const T* scales_ptr = get_ptr<const T>(scale);
-    const T* zp_ptr = get_ptr<const T>(zp);
-    const T* bias_ptr = get_ptr<const T>(bias);
-    const T* res_ptr = get_ptr<const T>(res);
-    // how to use ?
-    const int64_t ws_bytes = fused_gemm_dq_runner.getWorkspaceSize(m, n, k);
-    auto ws_tensor =
-        th::empty({ws_bytes},
-                  th::dtype(th::kInt8).device(th::kCUDA).requires_grad(false));
-
-    T* output_tensor_ptr = get_ptr<T>(C);
-    char* ws_ptr = get_ptr<char>(ws_tensor);
-
-    
-    fused_gemm_dq_runner.gemm(input_act_ptr, weight_ptr, scales_ptr, zp_ptr,
-                              bias_ptr, res_ptr, output_tensor_ptr, m, n, k,
-                              group_size, ActivationType::Identity, ws_ptr,
-                              ws_bytes, stream);
-    
-  }
-
-  void forward_gelu(const th::Tensor& A, const th::Tensor& B, th::Tensor& C,
-                    const th::Tensor& scale, const th::Tensor& zp,
-                    const th::Tensor& bias, const int64_t m, const int64_t n,
-                    const int64_t k, int group_size) override {
-    auto stream = at::cuda::getCurrentCUDAStream().stream();
-    const T* input_act_ptr = get_ptr<const T>(A);
-    const WeightType* weight_ptr = get_ptr<const WeightType>(B);
-    const T* scales_ptr = get_ptr<const T>(scale);
-    const T* zp_ptr = get_ptr<const T>(zp);
-    const T* bias_ptr = get_ptr<const T>(bias);
-    // how to use ?
-    const int64_t ws_bytes = fused_gemm_dq_runner.getWorkspaceSize(m, n, k);
-    auto ws_tensor =
-        th::empty({ws_bytes},
-                  th::dtype(th::kInt8).device(th::kCUDA).requires_grad(false));
-
-    T* output_tensor_ptr = get_ptr<T>(C);
-    char* ws_ptr = get_ptr<char>(ws_tensor);
-    
-    fused_gemm_dq_runner.gemm(input_act_ptr, weight_ptr, scales_ptr, zp_ptr,
-                              bias_ptr, nullptr, output_tensor_ptr, m, n, k,
-                              group_size, ActivationType::Gelu, ws_ptr,
-                              ws_bytes, stream);
-    
-  }
-  */
   void forward(const th::Tensor& A, const th::Tensor& B, th::Tensor& C,
                const th::Tensor& scale, const th::Tensor& zp,
                const th::Tensor& bias, const int64_t m, const int64_t n,
@@ -132,7 +58,7 @@ class TrtllmFpAIntBGemm : public ITrtllmFpAIntBGemm {
     const T* zp_ptr = get_ptr<const T>(zp);
     const T* bias_ptr = get_ptr<const T>(bias);
     const T* res_ptr = nullptr;
-    // how to use ?
+    
     const int64_t ws_bytes = fused_gemm_dq_runner.getWorkspaceSize(m, n, k);
     auto ws_tensor =
         th::empty({ws_bytes},
@@ -157,17 +83,6 @@ class TrtllmFpAIntBGemm : public ITrtllmFpAIntBGemm {
 th::Tensor dQ_asymm_qw2_gemm(const th::Tensor& A, const th::Tensor& B,
                                   const th::Tensor& scale, const th::Tensor& zp,
                                   const th::Tensor& bias, int group_size) {
-  /*
-  CHECK_TH_CUDA(A);
-  CHECK_CONTIGUOUS(B);
-  CHECK_TH_CUDA(B);
-  CHECK_CONTIGUOUS(A);
-  CHECK_TH_CUDA(scale);
-  CHECK_CONTIGUOUS(scale);
-  CHECK_TH_CUDA(zp);
-  CHECK_CONTIGUOUS(zp);
-  */
-
   int64_t m = 1;
   const int64_t n = B.size(1) * 4;
   const int64_t k = A.size(-1);
@@ -179,15 +94,6 @@ th::Tensor dQ_asymm_qw2_gemm(const th::Tensor& A, const th::Tensor& B,
   out_shape.push_back(n);
 
   auto compute_dtype = A.scalar_type();
-
-  /*
-  PTH_ENFORCE(compute_dtype == at::ScalarType::Half ||
-                  compute_dtype == at::ScalarType::BFloat16,
-              "compute type only support fp16 and bf16 !!!");
-  PTH_ENFORCE(compute_dtype == scale.scalar_type(), "invalid scale dtype");
-  PTH_ENFORCE(compute_dtype == zp.scalar_type(), "invalid zp dtype");
-  PTH_ENFORCE(compute_dtype == bias.scalar_type(), "invalid bias dtype");
-  */
 
   std::unique_ptr<ITrtllmFpAIntBGemm> qgemm;
 
@@ -217,125 +123,6 @@ th::Tensor dQ_asymm_qw2_gemm(const th::Tensor& A, const th::Tensor& B,
   return output_tensor;
 }
 
-/*
-th::Tensor dQ_asymm_qw2_gemm_res(const th::Tensor& A, const th::Tensor& B,
-                                      const th::Tensor& scale,
-                                      const th::Tensor& zp,
-                                      const th::Tensor& bias,
-                                      const th::Tensor& res, int group_size) {
-  
-  CHECK_TH_CUDA(A);
-  CHECK_CONTIGUOUS(B);
-  CHECK_TH_CUDA(B);
-  CHECK_CONTIGUOUS(A);
-  CHECK_TH_CUDA(scale);
-  CHECK_CONTIGUOUS(scale);
-  CHECK_TH_CUDA(zp);
-  CHECK_CONTIGUOUS(zp);
-  CHECK_TH_CUDA(res);
-  CHECK_CONTIGUOUS(res);
-  
-
-  int64_t m = 1;
-  const int64_t n = B.size(1) * 4;
-  const int64_t k = A.size(-1);
-  std::vector<int64_t> out_shape;
-  for (int64_t i = 0; i < A.dim() - 1; ++i) {
-    m *= A.size(i);
-    out_shape.push_back(A.size(i));
-  }
-  out_shape.push_back(n);
-  auto compute_dtype = A.scalar_type();
-
-  
-  PTH_ENFORCE(compute_dtype == at::ScalarType::Half ||
-                  compute_dtype == at::ScalarType::BFloat16,
-              "compute type only support fp16 and bf16 !!!");
-  
-
-  std::unique_ptr<ITrtllmFpAIntBGemm> qgemm;
-
-  if (compute_dtype == at::ScalarType::Half) {
-    qgemm  = std::make_unique<TrtllmFpAIntBGemm<
-        half, cutlass::uint2b_t,
-        cutlass::WeightOnlyQuantOp::FINEGRAINED_SCALE_AND_ZEROS>>();
-  }
-#if CUDA_VERSION >= 11000
-  else if (compute_dtype == at::ScalarType::BFloat16) {
-    qgemm = std::make_unique<TrtllmFpAIntBGemm<
-        __nv_bfloat16, cutlass::uint2b_t,
-        cutlass::WeightOnlyQuantOp::FINEGRAINED_SCALE_AND_ZEROS>>();
-  }
-#endif
-  else {
-    std::string err_msg =
-        "Unsupported compute type " + std::string(at::toString(compute_dtype));
-    throw std::runtime_error(err_msg);
-  }
-
-  auto output_tensor = th::empty(
-      out_shape,
-      th::dtype(compute_dtype).device(th::kCUDA).requires_grad(false));
-  qgemm->forward_res(A, B, output_tensor, scale, zp, bias, res, m, n, k,
-                     group_size);
-
-  return output_tensor;
-}
-
-th::Tensor dQ_asymm_qw2_gemm_gelu(const th::Tensor& A, const th::Tensor& B,
-                                       const th::Tensor& scale,
-                                       const th::Tensor& zp,
-                                       const th::Tensor& bias, int group_size) {
-  
-  CHECK_TH_CUDA(A);
-  CHECK_CONTIGUOUS(B);
-  CHECK_TH_CUDA(B);
-  CHECK_CONTIGUOUS(A);
-  CHECK_TH_CUDA(scale);
-  CHECK_CONTIGUOUS(scale);
-  CHECK_TH_CUDA(zp);
-  CHECK_CONTIGUOUS(zp);
-  
-
-  const int64_t m = A.size(0);
-  const int64_t n = B.size(1) * 4;
-  const int64_t k = A.size(1);
-  auto compute_dtype = A.scalar_type();
-
-  
-  PTH_ENFORCE(compute_dtype == at::ScalarType::Half ||
-                  compute_dtype == at::ScalarType::BFloat16,
-              "compute type only support fp16 and bf16 !!!");
-  
-
-  std::unique_ptr<ITrtllmFpAIntBGemm> qgemm;
-
-  if (compute_dtype == at::ScalarType::Half) {
-    qgemm = std::make_unique<TrtllmFpAIntBGemm<
-        half, cutlass::uint2b_t,
-        cutlass::WeightOnlyQuantOp::FINEGRAINED_SCALE_AND_ZEROS>>();
-  }
-#if CUDA_VERSION >= 11000
-  else if (compute_dtype == at::ScalarType::BFloat16) {
-    qgemm = std::make_unique<TrtllmFpAIntBGemm<
-        __nv_bfloat16, cutlass::uint2b_t,
-        cutlass::WeightOnlyQuantOp::FINEGRAINED_SCALE_AND_ZEROS>>();
-  }
-#endif
-  else {
-    std::string err_msg =
-        "Unsupported compute type " + std::string(at::toString(compute_dtype));
-    throw std::runtime_error(err_msg);
-  }
-
-  auto output_tensor = th::empty(
-      {m, n}, th::dtype(compute_dtype).device(th::kCUDA).requires_grad(false));
-  qgemm->forward_gelu(A, B, output_tensor, scale, zp, bias, m, n, k,
-                      group_size);
-
-  return output_tensor;
-}
-*/
 // preprocess weight
 th::Tensor dQ_preprocess_weights_int2_for_weight_only(
     const th::Tensor& in) {
@@ -399,14 +186,6 @@ th::Tensor dQ_preprocess_weights_int2_for_weight_only(
   return out;
 }
 
-/*
-th::Tensor dQ_asymm_qw2_gemm(const th::Tensor& A, const th::Tensor& B,
-                                  const th::Tensor& scale, const th::Tensor& zp,
-                                  const th::Tensor& bias, int group_size)
-th::Tensor dQ_preprocess_weights_int2_for_weight_only(
-    const th::Tensor& in)
-*/
-
 PYBIND11_MODULE(decoupleQ_kernels, m) {
   m.def(
     "dQ_asymm_qw2_gemm",
@@ -419,7 +198,3 @@ PYBIND11_MODULE(decoupleQ_kernels, m) {
     "preprocess weight before weight only int2 gemm run"
   );
 }
-/*
-PYBIND11_MODULE(DecoupleQ_kernels, m) { 
-}
-*/
