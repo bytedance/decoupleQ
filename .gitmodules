@@ -1,0 +1,8 @@
+[submodule "dependencies/TensorRT-LLM"]
+	path = dependencies/TensorRT-LLM
+	url = https://github.com/gavinchen430/TensorRT-LLM.git
+	branch = gemm_w2a16
+[submodule "dependencies/cutlass"]
+	path = dependencies/cutlass
+	url = https://github.com/gavinchen430/cutlass.git
+	branch = data_type_w2

@@ -18,6 +18,7 @@ from decoupleQ.moq_quant import Quantizer
 from decoupleQ.quant import find_layers, to_device
 import shutil
 import gc
+from decoupleQ.linear_w2a16 import LinearW2A16, LinearA16
 
 
 def get_llama(model):
@@ -267,6 +268,45 @@ def llama_eval(model, testenc, dev):
     model.config.use_cache = use_cache
     return ppl.item(), (torch.stack(nlls).sum() / (nsamples * model.seqlen)).item()
 
+def make_qw2_linear(old_linear: torch.nn.Linear, state_dicts, group_size, name):
+    in_features = old_linear.in_features
+    out_features = old_linear.out_features
+    bias = old_linear.bias
+    new_qw2_linear = LinearW2A16(in_features, out_features, bias, group_size)
+    ## turn on and use fake_quant model to verify compute result
+    #new_qw2_linear = LinearA16(in_features, out_features, bias, group_size)
+    
+    #add weight/bias/scale/zp from state_dict
+    weight = state_dicts[f"{name}.weight"]
+    if f"{name}.weight_qscale" in state_dicts:
+        scale = state_dicts[f"{name}.weight_qscale"]
+        zp = state_dicts[f"{name}.weight_qzero"]
+        new_qw2_linear.scale = scale.cuda().half().t().contiguous()
+        new_qw2_linear.zp = zp.cuda().half().t().contiguous()
+
+    new_qw2_linear.weight = weight.t().contiguous()
+
+    return new_qw2_linear
+
+def replace_llama_with_w2(llama_model, state_dicts, group_size):
+    layers = llama_model.model.layers
+    for i in range(len(layers)):
+        q_proj_new_linear = make_qw2_linear(layers[i].self_attn.q_proj, state_dicts, group_size, f"model.layers.{i}.self_attn.q_proj")
+        k_proj_new_linear = make_qw2_linear(layers[i].self_attn.k_proj, state_dicts, group_size, f"model.layers.{i}.self_attn.k_proj")
+        v_proj_new_linear = make_qw2_linear(layers[i].self_attn.v_proj, state_dicts, group_size, f"model.layers.{i}.self_attn.v_proj")
+        o_proj_new_linear = make_qw2_linear(layers[i].self_attn.o_proj, state_dicts, group_size, f"model.layers.{i}.self_attn.o_proj")
+
+        gate_proj_new_linear = make_qw2_linear(layers[i].mlp.gate_proj, state_dicts, group_size, f"model.layers.{i}.mlp.gate_proj")
+        up_proj_new_linear = make_qw2_linear(layers[i].mlp.up_proj, state_dicts, group_size, f"model.layers.{i}.mlp.up_proj")
+        down_proj_new_linear = make_qw2_linear(layers[i].mlp.down_proj, state_dicts, group_size, f"model.layers.{i}.mlp.down_proj")
+        
+        layers[i].self_attn.q_proj = q_proj_new_linear
+        layers[i].self_attn.k_proj = k_proj_new_linear
+        layers[i].self_attn.v_proj = v_proj_new_linear
+        layers[i].self_attn.o_proj = o_proj_new_linear
+        layers[i].mlp.gate_proj = gate_proj_new_linear
+        layers[i].mlp.up_proj = up_proj_new_linear
+        layers[i].mlp.down_proj = down_proj_new_linear
 
 def save_quant_model(args, model, quantizers, prefix):
     model = model.cpu()
@@ -295,12 +335,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        'model', type=str,
+        '--model', type=str,
         help='LlaMa model to load; pass location of hugginface converted checkpoint.'
     )
     parser.add_argument(
-        'dataset', type=str, choices=['wikitext2', 'ptb', 'c4'],
-        help='Where to extract calibration data from.'
+        '--quant_pt', type=str,
+        help='quant model to infer'
+    )
+    parser.add_argument(
+        '--dataset', type=str, choices=['wikitext2', 'ptb', 'c4'],
+        help='Where to extract calibration data from.',
+        default = 'c4'
     )
     parser.add_argument(
         '--seed',
@@ -323,7 +368,7 @@ if __name__ == '__main__':
         help='#bits to use for quantization; use 16 for evaluating base model.'
     )
     parser.add_argument(
-        '--group-size', type=int, default=-1,
+        '--group-size', type=int, default=64,
         help='Groupsize to use for quantization; default uses full row.'
     )
     parser.add_argument(
@@ -398,38 +443,86 @@ if __name__ == '__main__':
         '--train-bias', action='store_true',
         help='Whether to train the bias in linear layer'
     )
+    parser.add_argument(
+        '--inference', action = 'store_true',
+        help = "inference trained model"
+    )
 
     args = parser.parse_args()
+
     args.asym = not args.sym
     args.qbits = args.wbits
-    print(args)
 
     model = get_llama(args.model)
     model.eval()
 
-    dataloader, testloader = get_loaders(
-        args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
-    )
+    if args.inference:
+        from transformers import AutoTokenizer
+        state_dict = torch.load(f"{args.quant_pt}")
+        tokenizer = AutoTokenizer.from_pretrained(args.model)
+        replace_llama_with_w2(model, state_dict, args.group_size)
 
-    dev = "cuda:0"
-    rank = 0
-    layers = model.model.layers
-    dataloader = [b[0] for b in dataloader]
-    tick = time.time()
-    quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
-    if args.save:
-        save_quant_model(args, model, quantizers, prefix="model.layers.")
-    print("The quantization duration is ", (time.time() - tick) / 3600)
-    datasets = ['wikitext2', 'ptb', 'c4']
-    if args.new_eval:
-        datasets = ['wikitext2', 'ptb-new', 'c4-new']
-    for dataset in datasets:
+        prompts = ["who are you?"]
+        input_token_ids = tokenizer(prompts)['input_ids']
+        input_token_ids_tensor = torch.LongTensor(input_token_ids).cuda()
+        
+        model.cuda()
+
+        import time
+
+        with torch.cuda.amp.autocast(dtype=torch.float16):
+            #do warmup
+            model_output = model.generate(input_token_ids_tensor, max_length=40)
+            model_output = model.generate(input_token_ids_tensor, max_length=40)
+
+            t_start = time.time()
+            model_output = model.generate(input_token_ids_tensor, max_length=40)
+            t_end = time.time()
+
+        out_text = tokenizer.batch_decode(model_output)
+        infer_time = (t_end - t_start) * 1000
+        print(f"out_text: {out_text}")
+        print(f"inference speed: e2e {infer_time} ms, pertoken {infer_time / model_output.shape[-1]} ms")
+    else:
         dataloader, testloader = get_loaders(
-            dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
+            args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
         )
-        print(dataset)
-        ppl, logPPL = llama_eval(model, testloader, dev)
-        print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
-
-
-
+    
+        dev = "cuda:0"
+        rank = 0
+        layers = model.model.layers
+        dataloader = [b[0] for b in dataloader]
+        tick = time.time()
+        quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+        if args.save:
+            save_quant_model(args, model, quantizers, prefix="model.layers.")
+        print("The quantization duration is ", (time.time() - tick) / 3600)
+        datasets = ['wikitext2', 'ptb', 'c4']
+        if args.new_eval:
+            datasets = ['wikitext2', 'ptb-new', 'c4-new']
+        for dataset in datasets:
+            dataloader, testloader = get_loaders(
+                args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
+            )
+    
+            dev = "cuda:0"
+            rank = 0
+            layers = model.model.layers
+            dataloader = [b[0] for b in dataloader]
+            tick = time.time()
+            quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+            print("The quantization duration is ", (time.time() - tick) / 3600)
+            datasets = ['wikitext2', 'ptb', 'c4']
+            if args.new_eval:
+                datasets = ['wikitext2', 'ptb-new', 'c4-new']
+            for dataset in datasets:
+                dataloader, testloader = get_loaders(
+                    dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
+                )
+                print(dataset)
+                ppl, logPPL = llama_eval(model, testloader, dev)
+                print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
+    
+            if args.save:
+                llama_pack3(model, quantizers)
+                torch.save(model.state_dict(), args.save)

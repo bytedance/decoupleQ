@@ -1,6 +1,11 @@
-pip3 install datasets==1.17.0
+if [ $# -eq 0 ]; then
+  echo "error: need model path!"
+  exit
+fi
 
-python3 llama.py PATH/llama-7b c4 --true-sequential --act-order --new-eval \
+pip3 install -r requirements.txt
+
+python3 llama.py --model $1/llama-7b --dataset c4 --true-sequential --act-order --new-eval \
 --wbits 2 \
 --group-size -1 \
 --nsamples 128 \
