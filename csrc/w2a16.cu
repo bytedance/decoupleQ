@@ -142,6 +142,7 @@ class TrtllmFpAIntBGemm : public ITrtllmFpAIntBGemm {
     char* ws_ptr = get_ptr<char>(ws_tensor);
 
     auto configs = fused_gemm_dq_runner.getConfigs();
+    configs[0].stages = 3;
 
     fused_gemm_dq_runner.gemm(input_act_ptr, weight_ptr, scales_ptr, zp_ptr,
                               bias_ptr, output_tensor_ptr, m, n, k,
