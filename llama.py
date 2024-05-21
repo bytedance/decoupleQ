@@ -487,13 +487,11 @@ if __name__ == '__main__':
         dataloader, testloader = get_loaders(
             args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
         )
-    
         dev = "cuda:0"
-        rank = 0
         layers = model.model.layers
         dataloader = [b[0] for b in dataloader]
         tick = time.time()
-        quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
+        quantizers = quant_sequential(args, model, layers, dataloader, dev=dev)
         if args.save:
             save_quant_model(args, model, quantizers, prefix="model.layers.")
         print("The quantization duration is ", (time.time() - tick) / 3600)
@@ -504,25 +502,7 @@ if __name__ == '__main__':
             dataloader, testloader = get_loaders(
                 args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
             )
-    
-            dev = "cuda:0"
-            rank = 0
-            layers = model.model.layers
-            dataloader = [b[0] for b in dataloader]
-            tick = time.time()
-            quantizers = quant_sequential(args, model, layers, dataloader, f"cuda:{rank}")
-            print("The quantization duration is ", (time.time() - tick) / 3600)
-            datasets = ['wikitext2', 'ptb', 'c4']
-            if args.new_eval:
-                datasets = ['wikitext2', 'ptb-new', 'c4-new']
-            for dataset in datasets:
-                dataloader, testloader = get_loaders(
-                    dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
-                )
-                print(dataset)
-                ppl, logPPL = llama_eval(model, testloader, dev)
-                print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
-    
-            if args.save:
-                llama_pack3(model, quantizers)
-                torch.save(model.state_dict(), args.save)
+            print(dataset)
+            ppl, logPPL = llama_eval(model, testloader, dev)
+            print(f"=====The ppl of {dataset} is {ppl}, logPPL is {logPPL}")
+
