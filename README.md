@@ -25,7 +25,8 @@ bash run_resnet.sh # will get result 64.134 for ResNet-18
 In llama quantization, if you find that the reproduced results (including the runtime) are far from the reported results, 
 consider modifying the flag: `torch.backends.cuda.matmul.allow_tf32`. More details can be found in [here](https://pytorch.org/docs/stable/notes/cuda.html#tf32-on-ampere).
 
-to run inference demo:
+to run inference demo, you should first modify the ``build.sh``, change the ``DCMAKE_PREFIX_PATH``, ``DDECOUPLEQ_TORCH_HOME``, 
+``DDECOUPLEQ_CUDA_HOME`` and ``DDECOUPLEQ_CUDNN_HOME`` based on your system, and then run the following commands:
 ```
 git submodule update --init
 bash build.sh  # need cmake3.21+
