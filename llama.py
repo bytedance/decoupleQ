@@ -500,7 +500,7 @@ if __name__ == '__main__':
             datasets = ['wikitext2', 'ptb-new', 'c4-new']
         for dataset in datasets:
             dataloader, testloader = get_loaders(
-                args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
+                dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
             )
             print(dataset)
             ppl, logPPL = llama_eval(model, testloader, dev)
